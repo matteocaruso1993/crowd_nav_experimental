@@ -18,8 +18,17 @@ import torch
 
 
 class RobotController:
-    def __init__(self, namespace='robot'):
+    def __init__(self, target, namespace='robot', controller_frequency = 2.5, auto_initialize=True):
         self.ns = namespace
+        self.controller_freq = controller_frequency
+        self.controller_time_step = 1/self.controller_freq
+        self.controller_time = 0
+        
+        #Setting target
+        self.setTargetLocation(target)
+        
+        if auto_initialize:
+            self.initialize()
         
         self.nn_path = os.path.join( os.path.dirname(os.path.abspath(__file__)) ,"nn" )
         
@@ -27,6 +36,15 @@ class RobotController:
         self.n_actions = 9
         
         self.state_tensor_z1 = None
+        
+        
+    def resetControllerTimer(self):
+        self.controller_time = 0
+    
+    def setTargetLocation(self, target):
+        #target must be a list containing x and y
+        self.target = target
+        
     
     def loadNet(self):
         self.net = ConvModel(partial_outputs = True, n_actions = self.n_actions, n_frames = self.n_frames, N_in = (268,4), \
@@ -63,11 +81,70 @@ class RobotController:
         #Initialize subscription and publishing to topics
     
         #Initialize tf listener
-        print('To-DO')
+        self.tf_listener = tf.listener()
+        self.scanner_static_tf = self.tf_listener.lookupTransform('/laserscanner_front_link','base_link')
+        
+                
+        #Start the controller ROS node
+        rospy.init_node('/controller', anonymous=True)
+        self.last_pose = None
+        self.current_pose = None
+        self.last_scan = None
+        self.current_scan = None
+        self.enable = False
+        
+        #Initialize publishers
+        self.command_pub = rospy.Publisher('/cmd_vel',Twist,queue_size=10)
+        self.command_msg = Twist()
+        
+        #Initialize subscribers
+        self.odom_sub = rospy.Subscriber('/odom', Odometry, self._odomCallback)
+        self.scan_sub = rospy.Subscriber('/scan', LaserScan, self._scanCallback)
+        
+        
+    def _processDataForNet(self):
+        scan_data = np.array(self.current_scan.ranges)
+        robot_pose = [self.current_pose.pose.position.x, self.current_pose.pose.position.y]
+        
+        q = (self.current_pose.pose.orientation.x,
+             self.current_pose.pose.orientation.y,
+             self.current_pose.pose.orientation.z,
+             self.current_pose.pose.orientation.w)
+        euler = tf.transformations.euler_from_quaternion(q)
+        
+        robot_orientation = euler[2]
+        
+        
+        
+        
+        
+        print('TO DO')
+        
+        
+    def _odomCallback(self,data):
+        self.last_pose = self.current_pose
+        self.current_pose = data
+    
+    def _scanCallback(self,data):
+        self.last_scan = self.current_scan
+        self.current_scan = data
         
         
     def _checkROSstatus(self):
         pass
+    
+    
+    def run(self):
+        r = rospy.Rate(self.controller_freq)
+        while not rospy.is_shutdown():
+            #DO things
+            #self.controller
+            continue
+            rospy.sleep()
+            
+            
+        if rospy.is_shutdown():
+            rospy.loginfo('Shutting down the robot controller...')
     
     
 
