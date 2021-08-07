@@ -1,0 +1,6 @@
+<launch>
+<!-- parameters -->
+<rosparam command="load" file="$(find crowd_nav_robot_controller)/config/params.yaml"/>
+<!-- start node -->
+<node pkg="crowd_nav_robot_controller" type="robot_controller_ros.py" name="RL_controller" respawn="false" output="screen"> </node>
+</launch>

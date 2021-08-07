@@ -1,0 +1,31 @@
+lidar_min_range: 0.01
+lidar_max_range: 15
+
+robot_max_lin_vel: 0.5
+robot_max_ang_vel: 0.6
+
+scale_commanded_lin_vel: 10
+scale_commanded_ang_vel: 10
+
+transform_scan_readings: True
+debug_commanded_vels: False
+auto_initialize: True
+clip_speed: True
+clip_readings: True
+exclude_negative_speed: False
+
+
+target: [10,10]
+controller_frequency: 5
+
+base_link_name: "base_link"
+scanner_link_name: "lidar_1_link"  #(lidar_1_link, laserscanner_front_link)
+scanner_topic_name: "lidar_1/scan_filtered" #('sick_s300_front/scan_filtered',lidar_1/scan_filtered)
+
+
+
+n_frames: 6
+n_actions: 9
+
+
+
