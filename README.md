@@ -11,11 +11,19 @@ This package requires python=3.8 in order to be executed correctly. For this rea
 
 ```cd catkin_test_ws```
 
-``catkin_make && cd src```
+```catkin_make && cd src```
 
 ```git clone https://github.com/ros/geometry2.git && cp $PATH-TO-YOUR-FOLDER$/crowd_nav_robot_controller . && cd ..```
 
 ```catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so```
+
+
+If no errors you are good...
+
+To start the controller then:
+```source devel/setup.bash```
+
+```roslaunch roslaunch crowd_nav_robot_controller controller.launch```
 
 
 
