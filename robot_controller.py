@@ -56,7 +56,7 @@ class RobotController:
         
     
     def loadNet(self):
-        self.net = ConvModel(partial_outputs = True, n_actions = self.n_actions, n_frames = self.n_frames, N_in = (268,4), \
+        self.net = ConvModel(partial_outputs = True, n_actions = self.n_actions, n_frames = self.n_frames, N_in = (135,4), \
                                   fc_layers = [40, 40, 20], softmax = True , layers_normalization = True,\
                                       n_partial_outputs = 18) 
             
