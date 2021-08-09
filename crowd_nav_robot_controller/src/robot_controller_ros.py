@@ -21,7 +21,11 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from key_listener import RobotKeyListener
-from functions import clip
+from functions import clip, getClosestValue
+
+
+import traceback
+import logging
 
 
 class RobotController:
@@ -46,7 +50,6 @@ class RobotController:
         self.setTargetLocation(self.params['target'])
         
         self.nn_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)) ,"..","data","nn" ))
-        
 
         
         
@@ -94,6 +97,8 @@ class RobotController:
     
     def initialize(self):
         #Start the controller ROS node
+        self.scan_data_initialized = False
+        self.first_scan = None
         rospy.init_node('controller', anonymous=True)
         rospy.loginfo('Controller node successfully initialized')
         
@@ -145,8 +150,14 @@ class RobotController:
         
         
     def _processDataForNet(self):
-        scan_data = np.array(self.current_scan.ranges)
-        net_in_size = self.net.get_net_input_shape()[0][3]
+        net_in_size = self.net.get_net_input_shape()[0][3]           
+        if self.params['nearest_interp']:
+            scan_data = np.zeros(self.reduced_scan_angles.shape)
+            for i, ray in enumerate(self.reduced_scan_angles):
+                scan_data[i] = self.current_scan.ranges[getClosestValue(self.scan_angles, ray, 'index')]
+        else:
+            scan_data = np.array(self.current_scan.ranges)
+                
         scan_data = self._decimateAndMinScanReadings(scan_data, net_in_size)
         
         #Clip scanner readings
@@ -176,11 +187,16 @@ class RobotController:
         #rospy.loginfo('got 1')
         self.last_pose = self.current_pose
         self.current_pose = data
+        
     
     def _scanCallback(self,data):
         #rospy.loginfo('got 2')
         self.last_scan = self.current_scan
         self.current_scan = data
+        if not self.scan_data_initialized:
+            self.scan_angles = np.arange(data.angle_min, data.angle_max, data.angle_increment)
+            self.scan_data_initialized = True
+            
         
     def _checkROSstatus(self):
         pass
@@ -272,12 +288,21 @@ class RobotController:
                        'robot_ang_vel_scale':rospy.get_param("scale_commanded_ang_vel", default=1),\
                        'exclude_negative_speed':rospy.get_param("exclude_negative_speed",default=False),\
                        'target':rospy.get_param("target",default=[10,10]),\
-                       'scan_topic':rospy.get_param("scanner_topic_name", default='sick_s300_front/scan_filtered')}
+                       'scan_topic':rospy.get_param("scanner_topic_name", default='sick_s300_front/scan_filtered'),\
+                       'nearest_interp':rospy.get_param("nearest_interp", default=False),\
+                       'scan_opening':rospy.get_param("scan_opening", default = None),\
+                       'num_rays':rospy.get_param("num_rays", default = None)}
                        
         self.controller_freq = float(self.params['controller_frequency'])
         self.controller_time_step = 1/self.controller_freq
         self.n_frames = int(self.params['n_frames'])
         self.n_actions = int(self.params['n_actions'])
+        if self.params['nearest_interp']:
+            if self.params['scan_opening'] is None or self.params['num_rays'] is None:
+                rospy.logerr('Invalid data for scan_opening or num_rays paramters. Using default settings...')
+                self.params['nearest_interp'] = False
+            else:
+                self.reduced_scan_angles = np.linspace(-np.deg2rad(self.params['scan_opening'])/2, np.deg2rad(self.params['scan_opening'])/2,self.params['num_rays'])
         
         
                                                                     
@@ -314,9 +339,11 @@ if __name__ == "__main__":
         rospy.loginfo('SYSTEM READY: Starting controller loop. Press CTRL+C to terminate it.')
         rob._printLegend()
         rob.run()
-    except:
+    except Exception as e:
         rospy.loginfo('Shutting down robot controller')
         rob.key_listener.stop()
+        logging.error(traceback.format_exc())
+        print(e)
     
     
     

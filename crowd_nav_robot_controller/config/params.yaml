@@ -27,5 +27,10 @@ scanner_topic_name: "lidar_1/scan_filtered" #('sick_s300_front/scan_filtered',li
 n_frames: 6
 n_actions: 9
 
+nearest_interp: True
+scan_opening: 180
+num_rays: 135
+
+
 
 
