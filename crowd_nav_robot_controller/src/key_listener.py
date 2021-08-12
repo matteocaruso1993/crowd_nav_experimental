@@ -33,6 +33,9 @@ class RobotKeyListener(KeyListener):
         self.emergency_stop_triggered = False
         self.new_target = None
         self.homing_requested = False
+        self.path_requested = False
+        self.new_path_enabled = False
+        self.catched = True
         
     def _on_press(self,key):
         if not self._skip_input:
@@ -43,6 +46,9 @@ class RobotKeyListener(KeyListener):
             
             if key == keyboard.Key.enter and self.emergency_stop_triggered:
                 self.emergency_stop_triggered = False
+
+            if key == keyboard.Key.enter  and self.path_requested:
+                self.path_requested = False
 
 
             try:
@@ -56,10 +62,17 @@ class RobotKeyListener(KeyListener):
                 if key.char == 'h':
                     self.homing_requested = True
 
+                if key.char == 'p':
+                    if self.new_path_enabled:
+                        self.catched = False
+                        self.path_requested = True
+                        rospy.loginfo('Listening to RVIZ point input. Press ENTER to stop the listener')
+                    
+
             except:
                 pass
         
-
+    
         
     
     def _new_target_requested(self):

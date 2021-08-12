@@ -1,26 +1,31 @@
 lidar_min_range: 0.01
-lidar_max_range: 15
+lidar_max_range: 10
 
 robot_max_lin_vel: 0.5
 robot_max_ang_vel: 0.6
 
-scale_commanded_lin_vel: 10
-scale_commanded_ang_vel: 10
+scale_commanded_lin_vel: 2
+scale_commanded_ang_vel: 2
 
 transform_scan_readings: True
 debug_commanded_vels: False
 auto_initialize: True
 clip_speed: True
 clip_readings: True
-exclude_negative_speed: False
+exclude_negative_speed: True
+debug_scan: True
+normalize_observations: True
 
+#Initial targte
+target: [11,-15] #[12,3]
+controller_frequency: 50
+target_distance_max: 20
 
-target: [10,10]
-controller_frequency: 5
-
+simulated: False
 base_link_name: "base_link"
-scanner_link_name: "lidar_1_link"  #(lidar_1_link, laserscanner_front_link)
-scanner_topic_name: "lidar_1/scan_filtered" #('sick_s300_front/scan_filtered',lidar_1/scan_filtered)
+scanner_link_name: ["laserscanner_front_link","lidar_1_link"]  #(lidar_1_link, laserscanner_front_link)
+scanner_topic_name: ["sick_s300_front/scan_filtered","lidar_1/scan_filtered"] #('sick_s300_front/scan_filtered',lidar_1/scan_filtered)
+debug_scanner_topic_name: "scan_debug"
 
 
 
@@ -30,6 +35,11 @@ n_actions: 9
 nearest_interp: True
 scan_opening: 180
 num_rays: 135
+
+
+listen_for_path_points: True
+save_path_points: True
+debug_path_points: True
 
 
 
