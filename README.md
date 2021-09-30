@@ -32,7 +32,8 @@ To start the controller then:
 
 ```roslaunch roslaunch crowd_nav_robot_controller controller.launch```
 
-If no errors then the package is working correctly
+If no errors then the package is working correctly.
+N.B. Make sure that the required topic names matches correctly, otherwise it is needed to modify the .yaml configuration file.
 
 
 
