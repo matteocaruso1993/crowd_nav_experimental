@@ -1,4 +1,6 @@
 # crowd_nav_experimental
+## Introduction
+This ROS package implements a controller for a differential drive mobile robot, which implements a neural network which has been trained with A3C Reinforcement Learning. The package allows the interaction with the visualization software Rviz, and allows the user to communicate waypoints directly from the keyboard.
 
 ## Setup
 Dowload the project into a folder of your choice:
@@ -18,13 +20,20 @@ This package requires python==3.8 in order to be executed correctly. For this re
 ```catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so```
 
 
-If no errors, you can proceed with the next steps
+If no errors, you can proceed with the next steps.
+
+## Test
+In this section, follows the instructions in order to 
 
 To start the controller then:
 
 ```source devel/setup.bash```
 
 ```roslaunch roslaunch crowd_nav_robot_controller controller.launch```
+
+If no errors then the package is working correctly
+
+
 
 
 
