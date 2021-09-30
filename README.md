@@ -5,7 +5,7 @@ Dowload the project into a folder of your choice:
 
 ```git clone https://github.com/matteocaruso1993/crowd_nav_experimental.git $PATH-TO-YOUR-FOLDER$```
 
-This package requires python=3.8 in order to be executed correctly. For this reason, it is needed to recompile the geometry pkg. First create an apposite catkin workspace. For Example:
+This package requires python==3.8 in order to be executed correctly. For this reason, it is needed to recompile the geometry pkg. First create an apposite catkin workspace. For Example:
 
 ```mkdir -p ~/catkin_test_ws/src```
 
@@ -18,7 +18,7 @@ This package requires python=3.8 in order to be executed correctly. For this rea
 ```catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6m -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so```
 
 
-If no errors you are good...
+If no errors, you can proceed with the next steps
 
 To start the controller then:
 ```source devel/setup.bash```
