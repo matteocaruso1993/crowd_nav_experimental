@@ -21,6 +21,7 @@ This package requires python==3.8 in order to be executed correctly. For this re
 If no errors, you can proceed with the next steps
 
 To start the controller then:
+
 ```source devel/setup.bash```
 
 ```roslaunch roslaunch crowd_nav_robot_controller controller.launch```
