@@ -1,6 +1,7 @@
 # crowd_nav_experimental
 ## Introduction
 This ROS package implements a controller for a differential drive mobile robot, which implements a neural network which has been trained with A3C Reinforcement Learning. The package allows the interaction with the visualization software Rviz, and allows the user to communicate waypoints directly from the keyboard.
+The package can be either be used in the simulation software Gazebo, or with a real differential drive robot. Moreover, the package can be either installed on a remote computer, or on the onboard computer of the robot.
 
 ## Setup
 Dowload the project into a folder of your choice:
