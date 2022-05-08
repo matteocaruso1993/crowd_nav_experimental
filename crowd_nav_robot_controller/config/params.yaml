@@ -1,11 +1,11 @@
 lidar_min_range: 0.01
-lidar_max_range: 10
+lidar_max_range: 10 #5
 
-robot_max_lin_vel: 0.5
-robot_max_ang_vel: 0.6
+robot_max_lin_vel: 0.6 #0.6
+robot_max_ang_vel: 1 #2
 
-scale_commanded_lin_vel: 2
-scale_commanded_ang_vel: 2
+scale_commanded_lin_vel: 1 #5
+scale_commanded_ang_vel: 1 #2
 
 transform_scan_readings: True
 debug_commanded_vels: False
@@ -18,7 +18,7 @@ normalize_observations: True
 
 #Initial targte
 target: [11,-15] #[12,3]
-controller_frequency: 50
+controller_frequency: 10 #100
 target_distance_max: 20
 
 simulated: False
@@ -29,8 +29,9 @@ debug_scanner_topic_name: "scan_debug"
 
 
 
-n_frames: 6
-n_actions: 9
+n_frames: 10
+n_actions: 25
+layers_list: [40,40,40]
 
 nearest_interp: True
 scan_opening: 180
@@ -41,6 +42,11 @@ listen_for_path_points: True
 save_path_points: True
 debug_path_points: True
 
+
+publish_markers: False
+publish_points: True
+
+display_target_location: True
 
 
 

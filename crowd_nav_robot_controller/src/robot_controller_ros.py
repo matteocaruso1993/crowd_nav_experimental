@@ -7,10 +7,11 @@ Created on Thu Aug  5 10:55:12 2021
 @author: matteo
 """
 
-from asynch_rl.nns.robot_net import ConvModel
-from asynch_rl.envs.gymstyle_envs import DiscrGymStyleRobot
+#from asynch_rl.nns.robot_net import ConvModel
+#from asynch_rl.envs.gymstyle_envs import DiscrGymStyleRobot
 
 import os
+from numpy.lib.polynomial import polyint
 import torch
 import rospy
 import rosnode
@@ -18,15 +19,19 @@ import tf2_ros as tf
 import transformations
 import numpy as np
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance, PointStamped
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance, PointStamped, Point, PoseWithCovarianceStamped
+from nav_msgs.msg import Odometry, Path
+from visualization_msgs.msg import Marker
 from key_listener import RobotKeyListener
 from functions import clip, getClosestValue
 import time
+from copy import deepcopy
 
 
 import traceback
 import logging
+
+
 
 
 class RobotController:
@@ -45,6 +50,7 @@ class RobotController:
         self.debug_scan_msg = None
 
         self.path_targets = list()
+        self.path_targets_tr = list()
         
         #Setting target
         
@@ -132,12 +138,12 @@ class RobotController:
         self.map2odom_transf = self.tf_buffer.lookup_transform("odom","map",rospy.Time(0))
         rospy.loginfo("The computed transformation is:")
         r = self.map2odom_transf.transform.rotation
-        print(self.map2odom_transf)
+        #print(self.map2odom_transf)
         q = (r.x,
              r.y,
              r.z,
              r.w)
-        print(transformations.euler_from_quaternion(q))
+        #print(transformations.euler_from_quaternion(q))
 
         
         
@@ -150,13 +156,13 @@ class RobotController:
     def loadNet(self):
         rospy.loginfo('Generating Conv Model')
         self.net = ConvModel(partial_outputs = True, n_actions = self.n_actions, n_frames = self.n_frames, N_in = (self.params['num_rays'],4), \
-                                  fc_layers = [40, 40, 20], softmax = True , layers_normalization = True,\
+                                  fc_layers = [40, 40, 40], softmax = True , layers_normalization = True,\
                                       n_partial_outputs = 18)
         rospy.loginfo('Conv Model generated')
             
-        self.discr_gym_env = DiscrGymStyleRobot(lidar_n_rays = self.params['num_rays'], n_frames = self.n_frames, n_bins_act= 2 )
+        self.discr_gym_env = DiscrGymStyleRobot(lidar_n_rays = self.params['num_rays'], n_frames = self.n_frames, n_bins_act= 4, v_linear_max=0.5, v_angular_max=1,max_v_x_delta=.2, max_v_rot_delta=.3)
         
-        self.net.load_net_params(self.nn_path, "nn_policyv1" , torch.device('cpu') )
+        self.net.load_net_params(self.nn_path, "nn_policy_v3" , torch.device('cpu') )
         
         
     def abs_2_rel(self, target_coordinates, current_pose):
@@ -208,6 +214,7 @@ class RobotController:
             self.key_listener.new_path_enabled = True
             self.map2odom_transf = self.tf_buffer.lookup_transform("map",\
             "odom",rospy.Time(),rospy.Duration(30))
+            #print(self.map2odom_transf)
         
         rospy.loginfo('tf buffer initialized')
         
@@ -226,7 +233,31 @@ class RobotController:
         
         self.command_msg = Twist()
         self.emergency_command_msg = Twist()
+
+
+        self.path_pub = rospy.Publisher("path", Path, queue_size=10)
+        self.path_msg = Path()
+
         rospy.loginfo('Publishers Initialized')
+
+
+        if self.params['publish_markers']:
+            self.marker_pub_original = rospy.Publisher('marker_map', Marker, queue_size=10)
+            self.marker_pub_transformed = rospy.Publisher('marker_odom', Marker, queue_size=10)
+
+            self.marker_msg = Marker()
+
+        if self.params['publish_points']:
+            self.point_pub_original = rospy.Publisher('point_map', PointStamped, queue_size=10)
+            self.point_pub_transformed = rospy.Publisher('point_odom', PointStamped, queue_size=10)
+            self.point_pub_target_odom = rospy.Publisher('target_odom', PointStamped, queue_size=10)
+
+            self.point_msg = PointStamped()
+
+
+        if self.params['display_target_location']:
+            self.target_direction_pub = rospy.Publisher('target_direction', PoseStamped, queue_size=10)
+            self.target_direction_msg = PoseStamped()
         
         #Initialize subscribers
         rospy.loginfo('Initializing subscribers')
@@ -235,7 +266,8 @@ class RobotController:
             self.scan_sub = rospy.Subscriber(self.params['scan_topic'][0], LaserScan, self._scanCallback)
         else:
             self.scan_sub = rospy.Subscriber(self.params['scan_topic'][1], LaserScan, self._scanCallback)
-            
+        
+        self.amcl_sub = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, self._amclCallback)
         rospy.loginfo('Subscribers Initialized')
         
         rospy.loginfo('Initializing control from keyboard')
@@ -272,7 +304,10 @@ class RobotController:
         
         
     def _processDataForNet(self):
-        self.setTargetLocation(self.path_targets[self.way_point_idx])
+        try:
+            self.setTargetLocation(self.path_targets_tr[self.way_point_idx])
+        except:
+            pass
         #print('Current Target Location:\t x=%4.4f,y=%4.4f' % tuple(self.target))
         #print('Current Target Index:\t x=%d' % self.way_point_idx)
         net_in_size = self.net.get_net_input_shape()[0][3]           
@@ -301,12 +336,18 @@ class RobotController:
         robot_orientation = euler[2]
         
         dist, angle = self.abs_2_rel(self.target, robot_pose + [robot_orientation])
+        #print('Target is located at %4.4f [m] with heading %4.4f [deg]' % (dist, np.rad2deg(angle)))
         
         if dist <= .5:
             self.way_point_idx += 1
-            self.setTargetLocation(self.path_targets[self.way_point_idx])
-            if self.way_point_idx >= len(self.path_targets):
+            #print(self.target)
+            #print(self.way_point_idx])
+            
+            if self.way_point_idx >= len(self.path_targets_tr):
                 self.target_reached = True
+            else:
+                rospy.loginfo('Moving to the next assigned waypoint: [%4.4f,%4.4f]....' % (self.path_targets_tr[self.way_point_idx][0], self.path_targets_tr[self.way_point_idx][1]))
+
         
         if self.params['debug_scan']:
             self.debug_scan_msg.header.stamp = rospy.Time.now()
@@ -321,7 +362,8 @@ class RobotController:
             
             self.scan_topic_debug.publish(self.debug_scan_msg)
             
-            
+        #print(scan_data.shape)
+        scan_data=scan_data[:-1]
         if not self.params['simulated']:
             scan_data = np.flipud(scan_data)
         
@@ -352,7 +394,7 @@ class RobotController:
             self.scan_data_initialized = True
 
     def _pointCallback(self, data):
-        data1 = self.tf_buffer.transform(data, "odom")
+        #data1 = self.tf_buffer.transform(data, "odom")
         l = [data.point.x, data.point.y]
 
         if not self.key_listener.catched:
@@ -364,6 +406,18 @@ class RobotController:
 
         if self.key_listener.path_requested:
             self.path_targets.append(l)
+
+    def _amclCallback(self, data):
+        pose = PoseStamped()
+        pose.pose.position.x = data.pose.pose.position.x
+        pose.pose.position.y = data.pose.pose.position.y
+        self.path_msg.poses.append(pose)
+
+    def publishPath(self):
+        self.path_msg.header.frame_id = "map"
+        self.path_msg.header.stamp = rospy.Time.now()
+        self.path_pub.publish(self.path_msg)
+
             
         
     def _checkROSstatus(self):
@@ -375,6 +429,28 @@ class RobotController:
         r = rospy.Rate(self.controller_freq)
         while not rospy.is_shutdown():
             #print(self.target)
+            try:
+                self.map2odom_transf = self.tf_buffer.lookup_transform("map",\
+                "odom",rospy.Time(),rospy.Duration(0))
+                #print(self.map2odom_transf)
+                #rospy.loginfo('Got TF')
+            except:
+                pass
+
+            self.transform_targets()
+
+            if self.params['publish_markers']:
+                self.publishMarkersMsgs()
+
+            if self.params['publish_points']:
+                self.publishPointsMsgs()
+
+            if self.params['display_target_location']:
+                self.publishTargetLocation()
+            
+            self.publishPath()
+
+            #Apply transform to current target
             
             if self.params['debug_scan']:            
                 self._processDataForNet()
@@ -384,6 +460,9 @@ class RobotController:
                 self.enable = False
             else:
                 self.enable = True
+
+            if self.target_reached:
+                rospy.loginfo('DESTINATION REACHED!')
                 
             if self.enable:
                 delta_vx, delta_dtheta = self.getRobotAction(self._processDataForNet())
@@ -473,7 +552,10 @@ class RobotController:
                        'target_distance_max':rospy.get_param("target_distance_max",default = 20),\
                        'listen_for_path_points':rospy.get_param("listen_for_path_points", default= True),\
                        'save_path_points':rospy.get_param("save_path_points", default=True),\
-                       'debug_path_points':rospy.get_param("debug_path_points", default = False)}
+                       'debug_path_points':rospy.get_param("debug_path_points", default = False),\
+                       'publish_markers':rospy.get_param("publish_markers", default=True),\
+                       'publish_points':rospy.get_param("publish_points", default=True),\
+                       'display_target_location':rospy.get_param("display_target_location", default = True)}
                        
         self.controller_freq = float(self.params['controller_frequency'])
         self.controller_time_step = 1/self.controller_freq
@@ -488,6 +570,7 @@ class RobotController:
                 #print(self.reduced_scan_angles.shape)
 
         self.path_targets.append(self.params['target'])
+        self.path_targets_tr = deepcopy(self.path_targets)
         
                                                                     
     def _printLegend(self):
@@ -498,7 +581,128 @@ class RobotController:
         print('*\tPress S key to activate emergency stop. To remove it, it will be requested to press the ENTER key')
         print('*\tPress N key to insert a new target location')
         print('*\tPress H key to make the robot return to its homing position')
+        print('*\tPress P key to to pass waypoints through Rviz')
+        print('*\tPress L key to to load waypoints from file')
         print(80*'=')
+
+    def transform_targets(self):
+        self.path_targets_tr = deepcopy(self.path_targets)
+        r = self.map2odom_transf.transform.rotation
+        #print(self.map2odom_transf)
+        q = (r.x,
+             r.y,
+             r.z,
+             r.w)
+        theta = transformations.euler_from_quaternion(q)[2]
+        #print(transformations.euler_from_quaternion(q))
+        pt1 = [0,0]
+        for i, pt in enumerate(self.path_targets):
+            pt1[0] = pt[0] - self.map2odom_transf.transform.translation.x
+            pt1[1] = pt[1] - self.map2odom_transf.transform.translation.y
+
+
+
+            self.path_targets_tr[i][0] = pt1[0]*np.cos(theta) + pt1[1]*np.sin(theta)
+            self.path_targets_tr[i][1] = -pt1[0]*np.sin(theta) + pt1[1]*np.cos(theta)
+
+            #self.path_targets_tr[i][0] -= self.map2odom_transf.transform.translation.x
+            #self.path_targets_tr[i][1] -= self.map2odom_transf.transform.translation.y
+
+
+        #print(self.path_targets_tr)
+        #print(len(self.path_targets))
+        #print(self.path_targets)
+
+
+    def publishMarkersMsgs(self):
+        #Original
+        self.marker_msg.header.stamp = rospy.Time.now()
+        p = Point()
+        p.x = self.path_targets[self.way_point_idx][0]
+        p.y = self.path_targets[self.way_point_idx][1]
+
+        self.marker_msg.header.frame_id = "map"
+        self.marker_msg.type = self.marker_msg.POINTS
+        self.marker_msg.action = self.marker_msg.ADD
+
+        # self.marker_msg.pose.position.x = self.path_targets[self.way_point_idx][0]
+        # self.marker_msg.pose.position.y = self.path_targets[self.way_point_idx][1]
+        self.marker_msg.pose.orientation.w = 1
+        self.marker_msg.scale.x = 0.4
+        self.marker_msg.scale.y = 0.4
+        self.marker_msg.scale.z = 0.4
+        self.marker_msg.color.a = 1
+        self.marker_msg.color.r = 1
+        self.marker_msg.points = [p]
+        self.marker_pub_original.publish(self.marker_msg)
+
+
+        p.x = self.path_targets_tr[self.way_point_idx][0]
+        p.y = self.path_targets_tr[self.way_point_idx][1]
+        self.marker_msg.header.stamp = rospy.Time.now()
+        self.marker_msg.header.frame_id = "odom"
+        self.marker_msg.type = self.marker_msg.POINTS
+        self.marker_msg.action = self.marker_msg.ADD
+        self.marker_msg.pose.orientation.w = 1
+        self.marker_msg.scale.x = 0.4
+        self.marker_msg.scale.y = 0.4
+        self.marker_msg.scale.z = 0.4
+        self.marker_msg.color.a = 0.5
+        self.marker_msg.color.r = 0.5
+        self.marker_msg.points = [p]
+        self.marker_pub_transformed.publish(self.marker_msg)
+
+
+    def publishPointsMsgs(self):
+        self.point_msg.header.stamp = rospy.Time.now()
+        self.point_msg.header.frame_id = "map"
+
+        self.point_msg.point.x = self.path_targets[self.way_point_idx][0]
+        self.point_msg.point.y = self.path_targets[self.way_point_idx][1]
+        self.point_pub_original.publish(self.point_msg)
+
+
+        self.point_msg.header.stamp = rospy.Time.now()
+        self.point_msg.header.frame_id = "odom"
+        self.point_msg.point.x = self.path_targets_tr[self.way_point_idx][0]
+        self.point_msg.point.y = self.path_targets_tr[self.way_point_idx][1]
+        self.point_pub_transformed.publish(self.point_msg)
+
+
+        self.point_msg.header.stamp = rospy.Time.now()
+        self.point_msg.header.frame_id = "odom"
+        self.point_msg.point.x = self.target[0]
+        self.point_msg.point.y = self.target[1]
+        self.point_pub_target_odom.publish(self.point_msg)
+
+
+    def publishTargetLocation(self):
+
+        robot_pose = [self.current_pose.pose.pose.position.x, self.current_pose.pose.pose.position.y]
+        q = (self.current_pose.pose.pose.orientation.x,
+             self.current_pose.pose.pose.orientation.y,
+             self.current_pose.pose.pose.orientation.z,
+             self.current_pose.pose.pose.orientation.w)
+        euler = transformations.euler_from_quaternion(q)
+        
+        robot_orientation = euler[2]
+        dist, angle = self.abs_2_rel(self.target, robot_pose + [robot_orientation])
+
+        tot_angle = robot_orientation + angle
+        self.target_direction_msg.header.stamp = rospy.Time.now()
+        self.target_direction_msg.header.frame_id = "odom"
+        self.target_direction_msg.pose.position.x = robot_pose[0]
+        self.target_direction_msg.pose.position.y = robot_pose[1]
+
+        q = transformations.quaternion_from_euler(0,0,tot_angle)
+        self.target_direction_msg.pose.orientation.x = q[0]
+        self.target_direction_msg.pose.orientation.y = q[1]
+        self.target_direction_msg.pose.orientation.z = q[2]
+        self.target_direction_msg.pose.orientation.w = q[3]
+        self.target_direction_pub.publish(self.target_direction_msg)
+
+
+
     
     
 
@@ -525,8 +729,13 @@ if __name__ == "__main__":
         rospy.loginfo('SYSTEM READY: Starting controller loop. Press CTRL+C to terminate it.')
         rob._printBanner()
         rob._printLegend()
-        rob.performInitialLocalization()
+        #rob.performInitialLocalization()
+        #try:
         rob.run()
+        #except e:
+        #    print(e)
+
+        #    pass
     #except Exception as e:
     #    rospy.loginfo('Shutting down robot controller')
     #    rob.key_listener.stop()

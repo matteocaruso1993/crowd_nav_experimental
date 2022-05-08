@@ -49,6 +49,7 @@ class RobotKeyListener(KeyListener):
 
             if key == keyboard.Key.enter  and self.path_requested:
                 self.path_requested = False
+                rospy.loginfo('Registered Points')
 
 
             try:
