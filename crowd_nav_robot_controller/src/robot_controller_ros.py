@@ -7,8 +7,8 @@ Created on Thu Aug  5 10:55:12 2021
 @author: matteo
 """
 
-#from asynch_rl.nns.robot_net import ConvModel
-#from asynch_rl.envs.gymstyle_envs import DiscrGymStyleRobot
+from asynch_rl.nns.robot_net import ConvModel
+from asynch_rl.envs.gymstyle_envs import DiscrGymStyleRobot
 
 import os
 from numpy.lib.polynomial import polyint
