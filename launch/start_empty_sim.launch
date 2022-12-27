@@ -1,0 +1,57 @@
+<launch>
+    <arg name="pos_x" default="-9"/>
+    <arg name="pos_y" default="-5"/>
+    <arg name="use_mouse_control" default="false"/>
+
+    <arg name="world_path" default="$(find crowd_nav_robot_controller)/data/worlds/crowd_world.world"/>
+
+
+    <arg name="world" default="empty"/> 
+    <arg name="paused" default="true"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+    
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(arg world_path)"/>
+        <arg name="paused" value="$(arg paused)"/>
+        <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+        <arg name="gui" value="$(arg gui)"/>
+        <arg name="headless" value="$(arg headless)"/>
+        <arg name="debug" value="$(arg debug)"/>
+    </include>
+
+
+
+    <!-- Load robot description file (robot model) -->
+    <param name="robot_description" command="$(find xacro)/xacro '$(find neo_simulation)/robots/mp_500/mp_500.urdf.xacro'" />
+
+
+    <!-- Spawn robot in the gazebo environment -->
+    <node name="mp_500_spawn" pkg="gazebo_ros" type="spawn_model" output="screen"
+    args="-urdf -param robot_description -model mp_500 -x $(arg pos_x) -y $(arg pos_y)" />
+    
+    <!-- Start joint state publisher -->
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+        <param name="rate" value="20.0" />
+    </node>
+
+    <!-- Start robot state publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+        <param name="publish_frequency" value="20.0" />
+    </node>
+
+
+    <!-- Start mouse control teleoperations -->
+    <group if="$(arg use_mouse_control)">
+        <node name="crowd_nave_mouse_teleop" pkg="mouse_teleop" type="mouse_teleop.py">
+            <remap from="/mouse_vel" to="/cmd_vel"/>
+        </node>
+    </group>
+
+
+
+
+
+</launch>

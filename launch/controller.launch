@@ -1,6 +1,14 @@
 <launch>
-<!-- parameters -->
-<rosparam command="load" file="$(find crowd_nav_robot_controller)/config/params.yaml"/>
-<!-- start node -->
-<node pkg="crowd_nav_robot_controller" type="robot_controller_ros.py" name="RL_controller" respawn="false" output="screen"> </node>
+    <arg name="simulated" default="false"/>
+    <!-- parameters -->
+    <group unless="$(arg simulated)">
+        <rosparam command="load" file="$(find crowd_nav_robot_controller)/config/params.yaml"/>
+    </group>
+
+    <group if="$(arg simulated)">
+        <rosparam command="load" file="$(find crowd_nav_robot_controller)/config/params_sim.yaml"/>
+    </group>
+    <!-- start node -->
+    <node pkg="crowd_nav_robot_controller" type="robot_controller_ros.py" name="RL_controller" respawn="false" output="screen"> 
+    </node>
 </launch>

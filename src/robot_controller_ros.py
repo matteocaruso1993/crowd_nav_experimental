@@ -202,10 +202,10 @@ class RobotController:
         #Get static transform from base_link to laser_scanner
         if not self.params['simulated']:
             self.scanner_static_tf = self.tf_buffer.lookup_transform(self.params['base_link_frame_name'],\
-            self.params['scanner_link_frame_name'][0],rospy.Time(),rospy.Duration(3))
+            self.params['scanner_link_frame_name'][0],rospy.Time(),rospy.Duration(30))
         else:
             self.scanner_static_tf = self.tf_buffer.lookup_transform(self.params['base_link_frame_name'],\
-            self.params['scanner_link_frame_name'][1],rospy.Time(),rospy.Duration(3))
+            self.params['scanner_link_frame_name'][1],rospy.Time(),rospy.Duration(30))
         #Duration added in order to being able to recive tf
 
 

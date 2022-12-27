@@ -1,0 +1,33 @@
+<launch>
+    <arg name="simulated" default="false"/>
+    <arg name="use_rviz" default="true"/>
+    <arg name="debug_connection" default="false"/>
+    <arg name="map_file_sim" default="$(find crowd_nav_robot_controller)/data/maps/crowd_world/crowd_world.yaml"/>
+
+    <group if="$(arg simulated)">
+        <include file="$(find crowd_nav_robot_controller)/launch/start_empty_sim.launch">
+            <arg name="pos_x" value="0"/>
+            <arg name="pos_y" value="0"/>
+            <arg name="use_mouse_control" value="false"/>
+        </include>
+
+        <!-- Start map server -->
+        <node name="crowd_nav_map_server" pkg="map_server" type="map_server" args="$(arg map_file_sim)"/>
+
+        <!-- Start AMCL -->
+        <node pkg="amcl" type="amcl" name="amcl">
+            <remap from="scan" to="lidar_1/scan_filtered"/>
+            <rosparam file="$(find neo_simulation)/config/mp_500/amcl/amcl_config.yaml" command="load" />
+        </node>
+    </group>
+
+
+    <group if="$(arg use_rviz)">
+        <node name="crowd_nav_rviz" pkg="rviz" type="rviz" args="-d $(find crowd_nav_robot_controller)/rviz/default.rviz"/>
+    </group>
+
+    <group if="$(arg debug_connection)">
+        <node name="debug_ros_connection" pkg="rqt_graph" type="rqt_graph"/>
+    </group>
+
+</launch>

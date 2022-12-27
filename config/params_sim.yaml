@@ -21,7 +21,7 @@ target: [11,-15] #[12,3]
 controller_frequency: 10 #100
 target_distance_max: 20
 
-simulated: False
+simulated: True
 base_link_name: "base_link"
 scanner_link_name: ["laserscanner_front_link","lidar_1_link"]  #(lidar_1_link, laserscanner_front_link)
 scanner_topic_name: ["sick_s300_front/scan_filtered","lidar_1/scan_filtered"] #('sick_s300_front/scan_filtered',lidar_1/scan_filtered)
